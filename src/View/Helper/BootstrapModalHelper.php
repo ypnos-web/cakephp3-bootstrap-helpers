@@ -1,24 +1,24 @@
 <?php
 
 /**
-* Bootstrap Modal Helper
-*
-*
-* PHP 5
-*
-*  Licensed under the Apache License, Version 2.0 (the "License");
-*  you may not use this file except in compliance with the License.
-*  You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-*
-* @copyright Copyright (c) Mikaël Capelle (http://mikael-capelle.fr)
-* @link http://mikael-capelle.fr
-* @package app.View.Helper
-* @since Apache v2
-* @license http://www.apache.org/licenses/LICENSE-2.0
-*/
+ * Bootstrap Modal Helper
+ *
+ *
+ * PHP 5
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *
+ * @copyright Copyright (c) Mikaël Capelle (http://mikael-capelle.fr)
+ * @link http://mikael-capelle.fr
+ * @package app.View.Helper
+ * @since Apache v2
+ * @license http://www.apache.org/licenses/LICENSE-2.0
+ */
 
 namespace Bootstrap\View\Helper;
 
@@ -30,199 +30,231 @@ class BootstrapModalHelper extends Helper {
 
     public $helpers = ['Html'];
 
-    public $current = NULL ;
-    
+    protected $_current = null;
+
+    protected $_currentId = null;
+
     /**
-     * 
-     * Create a Twitter Bootstrap like modal. 
+     *
+     * Create a Twitter Bootstrap like modal.
      *
      * @param array|string $title If array, works as $options, otherwize used as the modal title.
-     * @param array $options Options for the main div of the modal. 
+     * @param array $options Options for the main div of the modal.
      *
      * Extra options (useless if $title not specified) :
      *     - close: Add close buttons to header (default true)
      *     - no-body: Do not open the body after the create (default false)
      *     - size: Modal size (small, large or custom classes)
-    **/
-    public function create($title = null, $options = array()) {
+     **/
+    public function create($title = null, $options = []) {
 
         if (is_array($title)) {
             $options = $title ;
         }
-        $close = $this->_extractOption('close', $options, true);
-        unset ($options['close']) ;
-        $nobody = $this->_extractOption('no-body', $options, false);
-        unset ($options['no-body']) ;
-        $options['tabindex'] = $this->_extractOption('tabindex', $options, -1);
-        $options['role'] = $this->_extractOption('role', $options, 'dialog');
-        $options['aria-hidden'] = $this->_extractOption('aria-hidden', $options, 'true');
-        if (isset($options['id'])) {
-            $this->currentId = $options['id'] ;
-            $options['aria-labelledby'] = $this->currentId.'Label' ;
+
+        $this->_currentId = null;
+        $this->_current   = null;
+
+        $options += [
+            'id' => null,
+            'close' => true,
+            'body' => true,
+            'tabindex' => -1,
+            'role' => 'dialog',
+            'aria-hidden' => 'true',
+            'size' => false
+        ];
+
+        $close = $options['close'];
+        $body  = $options['body'];
+        unset ($options['close'], $options['body']) ;
+
+
+        if ($options['id']) {
+            $this->_currentId = $options['id'] ;
+            $options['aria-labelledby'] = $this->_currentId.'Label' ;
         }
-        $options['size'] = $this->_extractOption('size', $options, '');
-	    switch($options['size']) {
-		    case 'lg':
-		    case 'large':
-		    case 'modal-lg':
-			    $size = 'modal-lg';
-			    break;
-		    case 'sm':
-		    case 'small':
-		    case 'modal-sm':
-			    $size = 'modal-sm';
-			    break;
-		    default:
-			    $size = $options['size'];
-			    break;
-	    }
-	    unset($options['size']);
-        
-	    $res = $this->Html->div('modal fade '.$this->_extractOption('class', $options, ''), NULL, $options).$this->Html->div('modal-dialog '.$size).$this->Html->div('modal-content');
+        switch($options['size']) {
+        case 'lg':
+        case 'large':
+        case 'modal-lg':
+            $size = ' modal-lg';
+            break;
+        case 'sm':
+        case 'small':
+        case 'modal-sm':
+            $size = ' modal-sm';
+            break;
+        case false:
+            $size = '';
+            break;
+        default:
+            $size = ' '.$options['size'];
+            break;
+        }
+        unset($options['size']);
+
+        $options = $this->addClass($options, 'modal fade');
+        $res = $this->Html->tag('div', null, $options)
+             .$this->Html->div('modal-dialog'.$size).$this->Html->div('modal-content');
         if (is_string($title) && $title) {
-            $res .= $this->_createHeader($title, array('close' => $close)) ;
-            if (!$nobody) {
-                $res .= $this->_startPart('body');
+            $res .= $this->_createHeader($title, ['close' => $close]) ;
+            if ($body) {
+                $res .= $this->_createBody();
             }
         }
         return $res ;
-	}
-    	
+    }
+
     /**
-     * 
-     * End a modal. If $buttons is not null, the ModalHelper::footer functions is called with $buttons and $options arguments.
+     *
+     * End a modal. If $buttons is not null, the ModalHelper::footer functions is called
+     * with $buttons and $options arguments.
      *
      * @param array|null $buttons
      * @param array $options
-     * 
-    **/
-    public function end ($buttons = NULL, $options = array()) {
-        $res = '' ;
-        if ($this->current != NULL) {
-            $this->current = NULL ;
-            $res .= $this->_endPart();
-        }
-        if ($buttons !== NULL) {
+     *
+     **/
+    public function end ($buttons = NULL, $options = []) {
+        $res = $this->_cleanCurrent();
+        if ($buttons !== null) {
             $res .= $this->footer($buttons, $options) ;
         }
         $res .= '</div></div></div>' ;
-		return $res ;
+        return $res ;
     }
 
     protected function _cleanCurrent () {
-        if ($this->current) {
-            $this->current = NULL ;
-            return $this->_endPart();
+        if ($this->_current) {
+            $this->_current = null ;
+            return '</div>';
         }
         return '' ;
     }
 
-    protected function _createHeader ($title, $options = array()) {
-        $close = $this->_extractOption('close', $options, true);
+    protected function _part ($part, $content = null, $options = []) {
+        $out = $this->_cleanCurrent().$this->Html->tag('div', $content, $options);
+        if (!$content)
+            $this->_current = $part;
+        return $out;
+    }
+
+    protected function _createHeader ($title = null, $options = []) {
+        $options += [
+            'close' => true
+        ];
+
+        $close = $options['close'];
         unset($options['close']) ;
-        if ($close) {
-            $button = '<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>' ;
-        }
-        else {
-            $button = '' ;
-        }
-        return $this->_cleanCurrent().$this->Html->div('modal-header '.$this->_extractOption('class', $options, ''), 
-            $button.$this->Html->tag('h4', $title, array('class' => 'modal-title', 'id' => $this->currentId ? $this->currentId.'Label' : false)), 
-            $options
-        ) ; 
-    }
 
-    protected function _createBody ($text, $options = array()) {
-        return $this->_cleanCurrent().$this->Html->div('modal-body '.$this->_extractOption('class', $options, ''), $text, $options) ; 
-    }
+        $options = $this->addClass($options, 'modal-header');
 
-    protected function _createFooter ($buttons = NULL, $options = array()) {
-        if ($buttons == NULL) {
-            $close = $this->_extractOption('close', $options, true);
-            unset($options['close']) ;
+        $out = null;
+        if ($title) {
+            $out = '';
             if ($close) {
-                $buttons = '<button type="button" class="btn btn-default" data-dismiss="modal">'.__('Close').'</button>' ;
+                $out .= $this->Html->tag('button', '&times;', [
+                    'type' => 'button',
+                    'class' => 'close',
+                    'data-dismiss' => 'modal',
+                    'aria-hidden' => 'true'
+                ]);
             }
-            else {
-                $buttons = '' ;
-            }
+            $out .= $this->Html->tag('h4', $title, [
+                'class' => 'modal-title',
+                'id' => $this->_currentId ? $this->_currentId.'Label' : false
+            ]);
         }
-        return $this->_cleanCurrent().$this->Html->div('modal-footer '.$this->_extractOption('class', $options, ''), $buttons, $options) ; 
-    }
-    
-    protected function _startPart ($part, $options = array()) {
-        $res = '' ;
-        if ($this->current != NULL) {
-            $res = $this->_endPart () ;
-        }
-        $this->current = $part ;
-        return $res.$this->Html->div('modal-'.$part.' '.$this->_extractOption('class', $options, ''), NULL, $options) ;
+
+        return $this->_part('header', $out, $options);
     }
 
-    protected function _endPart () {
-        return '</div>' ;
+    protected function _createBody ($text = null, $options = []) {
+        $options = $this->addClass($options, 'modal-body');
+        return $this->_part('body', $text, $options);
+    }
+
+    protected function _createFooter ($buttons = null, $options = []) {
+        $options += [
+            'close' => true
+        ];
+        $close = $options['close'];
+        unset($options['close']);
+
+        $content = '';
+        if (!$buttons && $close) {
+            $content .= '<button type="button" class="btn btn-default" data-dismiss="modal">'
+                     .__('Close')
+                     .'</button>' ;
+        }
+        $content .= $buttons;
+
+        $options = $this->addClass($options, 'modal-footer');
+        return $this->_part('footer', $buttons, $options);
     }
 
     /**
      *
-     * Create / Start the header. If $info is specified as a string, create and return the whole header, otherwize only open the header.
-     * 
+     * Create / Start the header. If $info is specified as a string, create and return the
+     * whole header, otherwize only open the header.
+     *
      * @param array|string $info If string, use as the modal title, otherwize works as $options.
      * @param array $options Options for the header div.
-     * 
+     *
      * Special option (if $info is string):
      *     - close: Add the 'close' button in the header (default true).
      *
-    **/
-    public function header ($info = NULL, $options = array()) {
-        if (is_string($info)) {
-            return $this->_createHeader($info, $options) ;
+     **/
+    public function header ($info = null, $options = []) {
+        if (is_array($info)) {
+            $options = $info;
+            $info = null;
         }
-        return $this->_startPart('header', is_array($info) ? $info : $options) ;
+        return $this->_createHeader($info, $options) ;
     }
 
     /**
      *
-     * Create / Start the body. If $info is not null, it is used as the body content, otherwize start the body div.
-     * 
+     * Create / Start the body. If $info is not null, it is used as the body content,
+     * otherwize start the body div.
+     *
      * @param array|string $info If string, use as the body content, otherwize works as $options.
      * @param array $options Options for the footer div.
-     * 
      *
-    **/
-    public function body ($info = NULL, $options = array()) {
-        if (is_string($info)) {
-            if ($this->current != NULL) {
-                $this->_endPart() ;
-            }
-            return $this->_createBody($info, $options) ;
+     *
+     **/
+    public function body ($info = null, $options = []) {
+        if (is_array($info)) {
+            $options = $info;
+            $info = null;
         }
-        return $this->_startPart('body', is_array($info) ? $info : $options) ;
+        return $this->_createBody($info, $options) ;
     }
 
-    protected function _isAssociativeArray ($array) {
-        return array_keys($array) !== range(0, count($array) - 1);
-    }
-    
     /**
      *
-     * Create / Start the footer. If $buttons is specified as an associative arrays or as null, start the footer, otherwize create the footer with the specified buttons.
-     * 
-     * @param array|string $buttons If string, use as the footer content, if list, concatenate values in the list as content (use for buttons purpose), otherwize works as $options.
+     * Create / Start the footer. If $buttons is specified as an associative arrays or as null,
+     * start the footer, otherwize create the footer with the specified buttons.
+     *
+     * @param array|string $buttons If string, use as the footer content, if list, concatenate
+     *        values in the list as content (use for buttons purpose), otherwize works as $options.
      * @param array $options Options for the footer div.
-     * 
+     *
      * Special option (if $buttons is NOT NULL but empty):
      *     - close: Add the 'close' button to the footer (default true).
      *
-    **/
-    public function footer ($buttons = [], $options = []) {
-        if ($buttons === NULL || (!empty($buttons) && $this->_isAssociativeArray($buttons))) {
-            return $this->_startPart('footer', $buttons === NULL ? $options : $buttons) ;
+     **/
+    public function footer ($buttons = null, $options = []) {
+        if (is_array($buttons)) {
+            if (!empty($buttons) && $this->_isAssociativeArray($buttons)) {
+                $options = $buttons;
+                $buttons = null;
+            }
+            else {
+                $buttons = implode('', $buttons);
+            }
         }
-        if (empty($buttons)) {
-            return $this->_createFooter(NULL, $options) ;
-        }
-        return $this->_createFooter(is_string($buttons) ? $buttons : implode('', $buttons), $options) ;
+        return $this->_createFooter($buttons, $options) ;
     }
 
 }

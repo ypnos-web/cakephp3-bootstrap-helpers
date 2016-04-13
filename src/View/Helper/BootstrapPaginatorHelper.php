@@ -1,24 +1,24 @@
 <?php
 
 /**
-* Bootstrap Paginator Helper
-*
-*
-* PHP 5
-*
-*  Licensed under the Apache License, Version 2.0 (the "License");
-*  you may not use this file except in compliance with the License.
-*  You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-*
-* @copyright Copyright (c) Mikaël Capelle (http://mikael-capelle.fr)
-* @link http://mikael-capelle.fr
-* @package app.View.Helper
-* @since Apache v2
-* @license http://www.apache.org/licenses/LICENSE-2.0
-*/
+ * Bootstrap Paginator Helper
+ *
+ *
+ * PHP 5
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *
+ * @copyright Copyright (c) Mikaël Capelle (http://mikael-capelle.fr)
+ * @link http://mikael-capelle.fr
+ * @package app.View.Helper
+ * @since Apache v2
+ * @license http://www.apache.org/licenses/LICENSE-2.0
+ */
 
 namespace Bootstrap\View\Helper;
 
@@ -27,7 +27,7 @@ use Cake\View\Helper\PaginatorHelper;
 class BootstrapPaginatorHelper extends PaginatorHelper {
 
     use BootstrapTrait ;
-    
+
     /**
      * Default config for this class
      *
@@ -59,7 +59,7 @@ class BootstrapPaginatorHelper extends PaginatorHelper {
             'last' => '<li><a href="{{url}}">{{text}}</a></li>',
             'number' => '<li><a href="{{url}}">{{text}}</a></li>',
             'current' => '<li class="active"><a href="{{url}}">{{text}}</a></li>',
-            'ellipsis' => '<li class="ellipsis">...</li>',
+            'ellipsis' => '<li class="ellipsis disabled"><a>...</a></li>',
             'sort' => '<a href="{{url}}">{{text}}</a>',
             'sortAsc' => '<a class="asc" href="{{url}}">{{text}}</a>',
             'sortDesc' => '<a class="desc" href="{{url}}">{{text}}</a>',
@@ -67,47 +67,59 @@ class BootstrapPaginatorHelper extends PaginatorHelper {
             'sortDescLocked' => '<a class="desc locked" href="{{url}}">{{text}}</a>',
         ]
     ];
-    
+
     /**
-     * 
+     *
      * Get pagination link list.
-     * 
+     *
      * @param $options Options for link element
      *
      * Extra options:
      *  - size small/normal/large (default normal)
-     *       
-    **/
-    public function numbers (array $options = array()) {       
-        
-        $class = 'pagination' ;
+     *
+     **/
+    public function numbers (array $options = []) {
 
-        if (isset($options['class'])) {
-            $class .= ' '.$options['class'] ;
-            unset($options['class']) ;
+        $defaults = [
+            'before' => null, 'after' => null, 'model' => $this->defaultModel(),
+            'modulus' => 8, 'first' => null, 'last' => null, 'url' => [],
+            'prev' => null, 'next' => null, 'class' => '', 'size' => false
+        ];
+        $options += $defaults;
+
+        $options = $this->addClass($options, 'pagination');
+
+        switch ($options['size']) {
+        case 'small':
+            $options = $this->addClass($options, 'pagination-sm') ;
+            break ;
+        case 'large':
+            $options = $this->addClass($options, 'pagination-lg') ;
+            break ;
         }
-        
-        if (isset($options['size'])) {
-            switch ($options['size']) {
-            case 'small':
-                $class .= ' pagination-sm' ;
-                break ;
-            case 'large':
-                $class .= ' pagination-lg' ;
-                break ;
-            }
-            unset($options['size']) ;
-        }
-          
-        if (!isset($options['before'])) {
-            $options['before'] = '<ul class="'.$class.'">' ;
-        }
-        
-        if (!isset($options['after'])) {
-            $options['after'] = '</ul>' ;
+        unset($options['size']) ;
+
+        $options['before'] .= $this->Html->tag('ul', null, ['class' => $options['class']]);
+        $options['after'] = '</ul>'.$options['after'] ;
+        unset($options['class']);
+
+        $params = (array)$this->params($options['model']) + ['page' => 1];
+        if ($params['pageCount'] <= 1) {
+            return false;
         }
 
-        if (isset($options['prev'])) {
+        $templater = $this->templater();
+        if (isset($options['templates'])) {
+            $templater->push();
+            $method = is_string($options['templates']) ? 'load' : 'add';
+            $templater->{$method}($options['templates']);
+        }
+
+        $first = $prev = $next = $last = '';
+
+        /* Previous and Next buttons (addition from standard PaginatorHelper). */
+
+        if ($options['prev']) {
             $title = $options['prev'] ;
             $opts  = [] ;
             if (is_array($title)) {
@@ -115,10 +127,11 @@ class BootstrapPaginatorHelper extends PaginatorHelper {
                 unset ($options['prev']['title']) ;
                 $opts  = $options['prev'] ;
             }
-            $options['before'] .= $this->prev($title, $opts) ;
+            $prev = $this->prev($title, $opts) ;
         }
+        unset($options['prev']);
 
-        if (isset($options['next'])) {
+        if ($options['next']) {
             $title = $options['next'] ;
             $opts  = [] ;
             if (is_array($title)) {
@@ -126,20 +139,65 @@ class BootstrapPaginatorHelper extends PaginatorHelper {
                 unset ($options['next']['title']);
                 $opts  = $options['next'];
             }
-            $options['after'] = $this->next($title, $opts).$options['after'] ;
+            $next = $this->next($title, $opts);
         }
-                
-        return parent::numbers ($options) ;
+        unset($options['next']);
+
+        /* Custom First and Last. */
+
+        list($start, $end) = $this->_getNumbersStartAndEnd($params, $options);
+
+        if ($options['last']) {
+            $ellipsis = isset($options['ellipsis']) ?
+                      $options['ellipsis'] : is_int($options['last']);
+            $ellipsis = $ellipsis ? $templater->format('ellipsis', []) : '';
+            $last = $this->_lastNumber($ellipsis, $params, $end, $options);
+        }
+
+        if ($options['first']) {
+            $ellipsis = isset($options['ellipsis']) ?
+                      $options['ellipsis'] : is_int($options['first']);
+            $ellipsis = $ellipsis ? $templater->format('ellipsis', []) : '';
+            $first = $this->_firstNumber($ellipsis, $params, $start, $options);
+        }
+
+        unset($options['ellipsis']);
+
+        $before = is_int($options['first']) ? $prev.$first : $first.$prev;
+        $after  = is_int($options['last']) ? $last.$next : $next.$last;
+        $options['before'] = $options['before'].$before;;
+        $options['after']  = $after.$options['after'];
+        $options['first']  = $options['last'] = false;
+
+        if ($options['modulus'] !== false && $params['pageCount'] > $options['modulus']) {
+            $out = $this->_modulusNumbers($templater, $params, $options);
+        } else {
+            $out = $this->_numbers($templater, $params, $options);
+        }
+
+        if (isset($options['templates'])) {
+            $templater->pop();
+        }
+
+
+        return $out;
     }
 
     public function prev ($title = '<< Previous', array $options = []) {
-        return $this->_easyIcon ('parent::prev', $title, $options);
+        return $this->_easyIcon('parent::prev', $title, $options);
     }
 
     public function next ($title = 'Next >>', array $options = []) {
-        return $this->_easyIcon ('parent::next', $title, $options);
+        return $this->_easyIcon('parent::next', $title, $options);
     }
 
+    public function first($first = '<< first', array $options = []) {
+        return $this->_easyIcon('parent::first', $first, $options);
+    }
+
+    public function last($last = 'last >>', array $options = []) {
+        return $this->_easyIcon('parent::last', $last, $options);
+    }
 
 }
 

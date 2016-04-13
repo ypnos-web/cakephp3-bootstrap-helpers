@@ -1,5 +1,5 @@
 <?php
-    
+
 /**
 * Bootstrap Trait
 *
@@ -23,14 +23,14 @@
 namespace Bootstrap\View\Helper;
 
 trait BootstrapTrait {
-    
+
     /**
      * Set to false to disable easy icon processing.
      *
      * @var boolean
      */
     public $easyIcon = true ;
-    
+
     /**
      * Adds the given class to the element options
      *
@@ -58,21 +58,23 @@ trait BootstrapTrait {
         }
         return $options ;
     }
-    
+
     /**
-     * 
      * Add classes to options according to values of bootstrap-type and bootstrap-size for button.
-     * 
+     *
      * @param $options The initial options with bootstrap-type and/or bootstrat-size values
-     * 
+     *
      * @return The new options with class values (btn, and btn-* according to initial options)
-     * 
+     *
      */
     protected function _addButtonClasses ($options) {
-        $type = $this->_extractOption('bootstrap-type', $options, $this->_defaultButtonType);
-        $size = $this->_extractOption('bootstrap-size', $options, FALSE);
-        unset($options['bootstrap-size']) ;
-        unset($options['bootstrap-type']) ;
+        $options += [
+            'bootstrap-type' => $this->config('buttons.type'),
+            'bootstrap-size' => false
+        ];
+        $type = $options['bootstrap-type'];
+        $size = $options['bootstrap-size'];
+        unset($options['bootstrap-type'], $options['bootstrap-size']) ;
         $options = $this->addClass($options, 'btn') ;
         if (in_array($type, $this->buttonTypes)) {
             $options = $this->addClass($options, 'btn-'.$type) ;
@@ -84,60 +86,29 @@ trait BootstrapTrait {
     }
 
     /**
-     * 
-     * Extract options from $options, returning $default if $key is not found.
      *
-     * @param $key     The key to search for.
-     * @param $options The array from which to extract the value.
-     * @param $default The default value returned if the key is not found.
+     * Check weither the specified array is associative or not.
      *
-     * @return mixed $options[$key] if $key is in $options, otherwize $default.
-     * 
-    **/
-    protected function _extractOption ($key, $options, $default = null) {
-        if (isset($options[$key])) {
-            return $options[$key] ;
-        }
-        return $default ;
+     * @param $array The array to check.
+     *
+     * @return true if the array is associative, false otherwize.
+     *
+     **/
+    protected function _isAssociativeArray ($array) {
+        return array_keys($array) !== range(0, count($array) - 1);
     }
 
     /**
-     *
-     * Check type values in $options, returning null if no option is found or if
-     * option is not in $avail.
-     * If type == $default, $default is returned (even if it is not in $avail).
-     *
-     * @param $options The array from which to extract the type.
-     * @param $key     The key of the value.
-     * @param $default The default value if the key is not present or if the value is not correct.
-     * @param $avail   An array of possible values.
-     *
-     * @return mixed
-     *
-    **/
-    protected function _extractType ($options, $key = 'type', $default = 'info',
-                                      $avail = array('info', 'success', 'warning', 'error')) {
-        $type = $this->_extractOption($key, $options, $default) ;
-        if ($default !== false && $type == $default) {
-            return $default ;
-        }
-        if (!in_array($type, $avail)) {
-            return null ;
-        }
-        return $type ;
-    }
-    
-    /**
-     *
      * Try to convert the specified $text to a bootstrap icon. The $text is converted if it matches
      * a format "i:icon-name".
      *
      * @param $title     The text to convert.
-     * @param $converted If specified, will contains true if the text was converted, false otherwize.
+     * @param $converted If specified, will contains true if the text was converted,
+     *                   false otherwize.
      *
      * @return The icon element if the conversion was successful, otherwize $text.
      *
-     * Note: This function will currently fail if the Html helper associated with the view is not 
+     * Note: This function will currently fail if the Html helper associated with the view is not
      * BootstrapHtmlHelper.
      *
     **/
@@ -154,7 +125,6 @@ trait BootstrapTrait {
     }
 
     /**
-     *
      * This method will the function $callback with the specified argument ($title and $options)
      * after applying a filter on them.
      *
@@ -164,7 +134,8 @@ trait BootstrapTrait {
      *
      * @return Whatever might be returned by $callback.
      *
-     * Note: Currently this method only works for function that take two arguments ($title and $options).
+     * Note: Currently this method only works for function that take
+     * two arguments ($title and $options).
      *
     **/
     protected function _easyIcon ($callback, $title, $options) {

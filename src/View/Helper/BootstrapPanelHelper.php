@@ -129,8 +129,9 @@ class BootstrapPanelHelper extends Helper {
         $options = $this->addClass($options, ['panel', 'panel-'.$type]);
 
         if ($this->_collapsible) {
-            $this->_headId = 'heading-'.($this->_panelCount);
-            $this->_bodyId = 'collapse-'.($this->_panelCount);
+            $id = hash('md5', uniqid());
+            $this->_headId = 'heading-'.$id;
+            $this->_bodyId = 'collapse-'.$id;
             $this->_panelCount++;
             if ($open) {
                 $this->_groupPanelOpen = $this->_bodyId;

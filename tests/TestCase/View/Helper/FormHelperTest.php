@@ -36,6 +36,23 @@ class FormHelperTest extends TestCase {
             'minutesRegex' => 'preg:/(?:<option value="([\d]+)">0?\\1<\/option>[\r\n]*)*/',
             'meridianRegex' => 'preg:/(?:<option value="(am|pm)">\\1<\/option>[\r\n]*)*/',
         ];
+
+        // from CakePHP FormHelperTest
+        $this->article = [
+            'schema' => [
+                'id' => ['type' => 'integer'],
+                'author_id' => ['type' => 'integer', 'null' => true],
+                'title' => ['type' => 'string', 'null' => true],
+                'body' => 'text',
+                'published' => ['type' => 'string', 'length' => 1, 'default' => 'N'],
+                '_constraints' => ['primary' => ['type' => 'primary', 'columns' => ['id']]]
+            ],
+            'required' => [
+                'author_id' => true,
+                'title' => true,
+            ]
+        ];
+
         Configure::write('debug', true);
     }
 
@@ -70,6 +87,96 @@ class FormHelperTest extends TestCase {
         // Automatically return to non horizonal form
         $result = $this->form->create();
         $this->assertEquals($this->form->inline, false);
+    }
+
+    public function testColumnSizes() {
+        $this->form->setConfig('columns', [
+            'md' => [
+                'label' => 2,
+                'input' => 6,
+                'error' => 4
+            ],
+            'sm' => [
+                'label' => 12,
+                'input' => 12,
+                'error' => 12
+            ]
+        ], false);
+        $this->form->create(null, ['horizontal' => true]);
+        $result = $this->form->control('test', ['type' => 'text']);
+        $expected = [
+            ['div' => [
+                'class' => 'form-group text'
+            ]],
+            ['label' => [
+                'class' => 'control-label col-md-2 col-sm-12',
+                'for' => 'test'
+            ]],
+            'Test',
+            '/label',
+            ['div' => [
+                'class' => 'col-md-6 col-sm-12'
+            ]],
+            ['input' => [
+                'type'  => 'text',
+                'class' => 'form-control',
+                'name'  => 'test',
+                'id'    => 'test'
+            ]],
+            '/div',
+            '/div'
+        ];
+        $this->assertHtml($expected, $result);
+
+        $this->article['errors'] = [
+            'Article' => [
+                'title' => 'error message',
+                'content' => 'some <strong>test</strong> data with <a href="#">HTML</a> chars'
+            ]
+        ];
+
+        $this->form->setConfig('columns', [
+            'md' => [
+                'label' => 2,
+                'input' => 6,
+                'error' => 4
+            ],
+            'sm' => [
+                'label' => 4,
+                'input' => 8,
+                'error' => 0
+            ]
+        ], false);
+        $this->form->create($this->article, ['horizontal' => true]);
+        $result = $this->form->control('Article.title', ['type' => 'text']);
+        $expected = [
+            ['div' => [
+                'class' => 'form-group has-error text'
+            ]],
+            ['label' => [
+                'class' => 'control-label col-md-2 col-sm-4',
+                'for' => 'article-title'
+            ]],
+            'Title',
+            '/label',
+            ['div' => [
+                'class' => 'col-md-6 col-sm-8'
+            ]],
+            ['input' => [
+                'type'  => 'text',
+                'class' => 'form-control has-error',
+                'name'  => 'Article[title]',
+                'id'    => 'article-title'
+            ]],
+            '/div',
+            ['span' => [
+                'class' => 'help-block error-message col-md-offset-0 col-md-4 col-sm-offset-4 col-sm-8'
+            ]],
+            'error message',
+            '/span',
+            '/div'
+        ];
+        $this->assertHtml($expected, $result);
     }
 
     public function testButton() {
@@ -955,6 +1062,54 @@ class FormHelperTest extends TestCase {
             '/div',
         ];
         $this->assertHtml($expected, $result);
+    }
+
+    public function testUploadCustomFileInput() {
+        $expected = [
+            ['input' => [
+                'type' => 'file',
+                'name' => 'Contact[picture]',
+                'id' => 'Contact[picture]',
+                'style' => 'display: none;',
+                'onchange' => "document.getElementById('Contact[picture]-input').value = (this.files.length <= 1) ? this.files[0].name : this.files.length + ' ' + 'files selected';"
+            ]],
+            ['div' => ['class' => 'input-group']],
+            ['div' => ['class' => 'input-group-btn']],
+            ['button' => [
+                'class' => 'btn btn-default',
+                'type' => 'button',
+                'onclick' => "document.getElementById('Contact[picture]').click();"
+            ]],
+            __('Choose File'),
+            '/button',
+            '/div',
+            ['input' => [
+                'type' => 'text',
+                'name' => 'Contact[picture]-text',
+                'class' => 'form-control',
+                'readonly' => 'readonly',
+                'id' => 'Contact[picture]-input',
+                'onclick' => "document.getElementById('Contact[picture]').click();"
+            ]],
+            '/div',
+        ];
+        $this->form->setConfig('useCustomFileInput', true);
+
+        $result = $this->form->file('Contact.picture');
+        $this->assertHtml($expected, $result);
+
+        $this->form->request->data['Contact']['picture'] = [
+            'name' => '', 'type' => '', 'tmp_name' => '',
+            'error' => 4, 'size' => 0
+        ];
+        $result = $this->form->file('Contact.picture');
+        $this->assertHtml($expected, $result);
+
+        $this->form->request->data['Contact']['picture'] = 'no data should be set in value';
+        $result = $this->form->file('Contact.picture');
+        $this->assertHtml($expected, $result);
+
+        // Test with filename, see issue #56
     }
 
 }

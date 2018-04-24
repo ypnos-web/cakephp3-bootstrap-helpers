@@ -14,6 +14,7 @@
  */
 namespace Bootstrap\View\Helper;
 
+use Bootstrap\Utility\Matching;
 use Bootstrap\View\FlexibleStringTemplateTrait;
 
 /**
@@ -103,7 +104,6 @@ class FormHelper extends \Cake\View\Helper\FormHelper {
             'radioContainer' => '<div class="form-group">{{content}}</div>',
             'inlineRadio' => '<input type="radio" name="{{name}}" value="{{value}}"{{attrs}}>',
             'inlineRadioWrapper' => '{{label}}',
-            'inlineRadioContainer' => '<div class="form-group">{{content}}</div>',
             'inlineRadioNestingLabel' => '{{hidden}}<label{{attrs}} class="radio-inline">{{input}}{{text}}</label>',
             'textarea' => '<textarea name="{{name}}" class="form-control{{attrs.class}}" {{attrs}}>{{value}}</textarea>',
             'submitContainer' => '<div class="form-group">{{submitContainerHorizontalStart}}{{content}}{{submitContainerHorizontalEnd}}</div>',
@@ -185,25 +185,13 @@ class FormHelper extends \Cake\View\Helper\FormHelper {
                     'errorColumnClass' => $this->_getColumnClass('error'),
                     'inputColumnOffsetClass' => $this->_getColumnClass('label', true),
                 ];
-                if (!$that->templates($data['templateName'])) {
+                if (!$that->getTemplates($data['templateName'])) {
                     $data['templateName'] = $name;
                 }
                 return $data;
             };
         }
         parent::__construct($View, $config);
-    }
-
-    /**
-     * Check if the given HTML string corresponds to a button or a submit input.
-     *
-     * @param string $html The HTML code to check
-     *
-     * @return bool `true` if the HTML code contains a button or a submit input,
-     * false otherwize.
-     */
-    protected function _matchButton($html) {
-        return strpos($html, '<button') !== FALSE || strpos($html, 'type="submit"') !== FALSE;
     }
 
     /**
@@ -330,7 +318,8 @@ class FormHelper extends \Cake\View\Helper\FormHelper {
             $template = 'inputGroupButtons';
             if (is_string($addonOrButtons)) {
                 $addonOrButtons = $this->_makeIcon($addonOrButtons);
-                if (!$this->_matchButton($addonOrButtons)) {
+                if (!Matching::findTagOrAttribute(
+                        'button', ['type' => 'submit'], $addonOrButtons)) {
                     $template = 'inputGroupAddons';
                 }
             }
@@ -486,7 +475,7 @@ class FormHelper extends \Cake\View\Helper\FormHelper {
         }
 
         if ($options['type'] === 'radio' && $inline) {
-            $options['type'] = 'inlineRadio';
+            $options['type'] = 'inlineradio';
         }
 
         $options['templateVars'] += [
@@ -665,13 +654,33 @@ class FormHelper extends \Cake\View\Helper\FormHelper {
      * @return string A HTML string containing the button dropdown.
      */
     public function dropdownButton($title, array $menu = [], array $options = []) {
-        $options['type'] = false;
-        $options['data-toggle'] = 'dropdown';
-        $options = $this->addClass($options, "dropdown-toggle");
+        // List of options to send to the dropdown() method
+        $optsForHtml = ['align'];
+        $ulOptions = [];
+        foreach ($optsForHtml as $opt) {
+            if (isset($options[$opt])) {
+                $ulOptions[$opt] = $options[$opt];
+                unset($options[$opt]);
+            }
+        }
+        $options += [
+            'type' => false,
+            'dropup' => false,
+            'data-toggle' => 'dropdown'
+        ];
+        $dropup = $options['dropup'];
+        unset($options['dropup']);
+
+        $bGroupOptions = [];
+        if ($dropup) {
+            $bGroupOptions = $this->addClass($bGroupOptions, 'dropup');
+        }
+
+        $options = $this->addClass($options, 'dropdown-toggle');
         return $this->buttonGroup([
             $this->button($title.' <span class="caret"></span>', $options),
-            $this->Html->dropdown($menu)
-        ]);
+            $this->Html->dropdown($menu, $ulOptions)
+        ], $bGroupOptions);
 
     }
 

@@ -3,6 +3,7 @@
 namespace Bootstrap\Test\TestCase\View\Helper;
 
 use Bootstrap\View\Helper\PanelHelper;
+use Cake\Core\Configure;
 use Cake\TestSuite\TestCase;
 use Cake\View\View;
 
@@ -27,6 +28,7 @@ class PanelHelperTest extends TestCase {
             'className' => 'Bootstrap.Html'
         ]);
         $this->panel = new PanelHelper($view);
+        Configure::write('debug', true);
     }
 
     protected function reset() {
@@ -89,6 +91,7 @@ class PanelHelperTest extends TestCase {
         $extraclass = 'my-extra-class';
 
         // Simple test
+        $this->panel->create();
         $result = $this->panel->header($content);
         $this->assertHtml([
             ['div' => [
@@ -104,6 +107,7 @@ class PanelHelperTest extends TestCase {
         $this->reset();
 
         // Test with HTML content (should be escaped)
+        $this->panel->create();
         $result = $this->panel->header($htmlContent);
         $this->assertHtml([
             ['div' => [
@@ -119,6 +123,7 @@ class PanelHelperTest extends TestCase {
         $this->reset();
 
         // Test with HTML content (should NOT be escaped)
+        $this->panel->create();
         $result = $this->panel->header($htmlContent, ['escape' => false]);
         $this->assertHtml([
             ['div' => [
@@ -135,6 +140,7 @@ class PanelHelperTest extends TestCase {
 
         // Test with icon
         $iconContent = 'i:home Home';
+        $this->panel->create();
         $result = $this->panel->header($iconContent);
         $this->assertHtml([
             ['div' => [
@@ -161,7 +167,7 @@ class PanelHelperTest extends TestCase {
             ['div' => [
                 'class' => 'panel-heading',
                 'role'  => 'tab',
-                'id'    => 'heading-0'
+                'id'    => 'heading-4'
             ]],
             ['h4' => [
                 'class' => 'panel-title'
@@ -169,9 +175,9 @@ class PanelHelperTest extends TestCase {
             ['a' => [
                 'role'          => 'button',
                 'data-toggle'   => 'collapse',
-                'href'          => '#collapse-0',
+                'href'          => '#collapse-4',
                 'aria-expanded' => 'true',
-                'aria-controls' => 'collapse-0'
+                'aria-controls' => 'collapse-4'
             ]],
             htmlspecialchars($htmlContent),
             '/a',
@@ -186,7 +192,7 @@ class PanelHelperTest extends TestCase {
         $this->assertHtml([
             ['div' => [
                 'role'  => 'tab',
-                'id'    => 'heading-1',
+                'id'    => 'heading-5',
                 'class' => 'panel-heading'
             ]],
             ['h4' => [
@@ -195,9 +201,9 @@ class PanelHelperTest extends TestCase {
             ['a' => [
                 'role'          => 'button',
                 'data-toggle'   => 'collapse',
-                'href'          => '#collapse-1',
+                'href'          => '#collapse-5',
                 'aria-expanded' => 'true',
-                'aria-controls' => 'collapse-1'
+                'aria-controls' => 'collapse-5'
             ]],
             ['b' => true], $content, '/b',
             '/a',
@@ -213,7 +219,7 @@ class PanelHelperTest extends TestCase {
         $this->assertHtml([
             ['div' => [
                 'role'  => 'tab',
-                'id'    => 'heading-2',
+                'id'    => 'heading-6',
                 'class' => 'panel-heading'
             ]],
             ['h4' => [
@@ -222,9 +228,9 @@ class PanelHelperTest extends TestCase {
             ['a' => [
                 'role'          => 'button',
                 'data-toggle'   => 'collapse',
-                'href'          => '#collapse-2',
+                'href'          => '#collapse-6',
                 'aria-expanded' => 'true',
-                'aria-controls' => 'collapse-2'
+                'aria-controls' => 'collapse-6'
             ]],
             ['i' => [
                 'class' => 'glyphicon glyphicon-home',
@@ -235,6 +241,24 @@ class PanelHelperTest extends TestCase {
             '/div'
         ], $result, true);
         $this->reset();
+    }
+
+    public function testFooter() {
+        $content = 'Footer';
+        $extraclass = 'my-extra-class';
+
+        // Simple test
+        $this->panel->create();
+        $result = $this->panel->footer($content, ['class' => $extraclass]);
+        $this->assertHtml([
+            ['div' => [
+                'class' => 'panel-footer '.$extraclass
+            ]],
+            $content,
+            '/div'
+        ], $result);
+        $this->reset();
+
     }
 
     public function testGroup() {
@@ -328,7 +352,93 @@ class PanelHelperTest extends TestCase {
             '/div'
         ]);
 
-        $this->assertHtml($expected, $result, true);
+        $this->assertHtml($expected, $result, false);
+    }
+
+    public function testPanelGroupInsidePanel() {
+
+        $panelHeading = 'This is a panel heading';
+        $panelContent = 'A bit of HTML code inside!';
+
+        $result = '';
+        $result .= $this->panel->create($panelHeading);
+        $result .= $this->panel->startGroup();
+        $result .= $this->panel->create($panelHeading);
+        $result .= $panelContent;
+        $result .= $this->panel->create($panelHeading);
+        $result .= $panelContent;
+        $result .= $this->panel->endGroup();
+        $result .= $this->panel->end();
+
+        $expected = [
+            ['div' => [
+                'class' => 'panel panel-default'
+            ]],
+            ['div' => [
+                'class' => 'panel-heading'
+            ]],
+            ['h4' => [
+                'class' => 'panel-title'
+            ]],
+            $panelHeading,
+            '/h4',
+            '/div',
+            ['div' => [
+                'class' => 'panel-body'
+            ]],
+            ['div' => [
+                'class'                => 'panel-group',
+                'role'                 => 'tablist',
+                'aria-multiselectable' => 'true',
+                'id'                   => 'panelGroup-1'
+            ]]
+        ];
+
+        for ($i = 1; $i < 3; ++$i) {
+            $expected = array_merge($expected, [
+                ['div' => [
+                    'class' => 'panel panel-default'
+                ]],
+                ['div' => [
+                    'class' => 'panel-heading',
+                    'role'  => 'tab',
+                    'id'    => 'heading-'.$i
+                ]],
+                ['h4' => [
+                    'class' => 'panel-title'
+                ]],
+                ['a' => [
+                    'role'          => 'button',
+                    'data-toggle'   => 'collapse',
+                    'href'          => '#collapse-'.$i,
+                    'aria-expanded' => ($i > 1) ? 'false' : 'true',
+                    'aria-controls' => 'collapse-'.$i,
+                    'data-parent'   => '#panelGroup-1'
+                ]],
+                $panelHeading,
+                '/a',
+                '/h4',
+                '/div',
+                ['div' => [
+                    'class'           => 'panel-collapse collapse'.($i > 1 ? '' : ' in'),
+                    'role'            => 'tabpanel',
+                    'aria-labelledby' => 'heading-'.$i,
+                    'id'              => 'collapse-'.$i
+                ]],
+                ['div' => [
+                    'class' => 'panel-body'
+                ]],
+                $panelContent,
+                '/div',
+                '/div',
+                '/div'
+            ]);
+        }
+
+        $expected = array_merge($expected, ['/div', '/div']);
+
+        $this->assertHtml($expected, $result, false);
+
     }
 
 }

@@ -55,12 +55,12 @@ trait EasyIconTrait {
         }
 
         // Use $this->icon if available, otherwize fall back to $this->Html->icon.
-        if (method_exists($this, 'icon')) {
+        /*if (method_exists($this, 'icon')) {
             $ficon = [$this, 'icon'];
         }
-        else {
+        else {*/
             $ficon = [$this->Html, 'icon'];
-        }
+        //}
 
         // Replace occurences.
         $text = preg_replace_callback(
